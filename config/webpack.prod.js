@@ -69,51 +69,42 @@ const configureOptimization = () => {
         //   },
         //   // chunks: 'all',
         // },
+        defaultVendors: false,
+        default: false,
 
         // auto common chunk
         commons: {
           name(module, chunks, cacheGroupKey) {
             let retChunkName = '';
+            const map = new Map();
             if (chunks.length === config.length) {
               retChunkName = 'common';
+              map.set(retChunkName, chunks);
             } else if (chunks.length > 1) {
-              const chunkNames = chunks.map((chunk) => chunk.name);
-              let offset = Math.min(
-                ...chunkNames.map((chunkName) => chunkName.length)
-              );
-              let longestCommonChunk = '';
-              for (let j = 0; j < offset; j++) {
-                let i = 1;
-                for (; i < chunkNames.length; i++) {
-                  const name = chunkNames[i];
-                  const prevName = chunkNames[i - 1];
-                  if (name[j] !== prevName[j]) {
-                    break;
+              // group by sub-project
+              chunks.forEach((chunk) => {
+                const parts = /([^\/]+)\/(.*)/.exec(chunk.name);
+                if (parts) {
+                  const groupName = `${parts[1]}-common`;
+                  let _chunks = map.get(groupName);
+                  if (!_chunks) {
+                    _chunks = [];
+                    map.set(groupName, _chunks);
                   }
+                  _chunks.push(chunk);
                 }
-                if (i !== chunkNames.length) {
-                  break;
-                } else {
-                  longestCommonChunk += chunkNames[0][j];
+              });
+              // if only used by 1 chunk, no need to extract it
+              for (const [k, chunks] of map) {
+                if (chunks.length <= 1) {
+                  map.delete(k);
                 }
-              }
-              if (longestCommonChunk) {
-                retChunkName = longestCommonChunk;
               }
             }
 
-            // const identifier = module.identifier();
-            // if (identifier.indexOf('isString') > -1) {
-            //   console.log(
-            //     'retChunkName',
-            //     JSON.stringify(retChunkName),
-            //     identifier
-            //   );
-            // }
-            const ret = retChunkName.replace(/\//g, '_');
-            return retChunkName ? ret : false;
+            console.log([...map.keys()]);
+            return map;
           },
-          // chunks: 'all',
         },
       },
     },
